@@ -8,7 +8,7 @@ require.config({
  paths: {
     keymaster: 'vendor/keymaster.min',
     jquery: 'vendor/jquery.min',
-    lodash: 'vendor/lodash/lodash.min'
+    lodash: 'components/lodash/lodash.min'
   }
 });
  
