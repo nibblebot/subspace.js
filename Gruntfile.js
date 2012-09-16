@@ -51,7 +51,7 @@ module.exports = function( grunt ) {
     watch: {
       coffee: {
         files: '<config:coffee.dist.src>',
-        tasks: 'coffee reload'
+        tasks: 'coffee'
       },
       compass: {
         files: [

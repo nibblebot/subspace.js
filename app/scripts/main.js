@@ -1,13 +1,17 @@
 require.config({
   shim: {
+    'keymaster': {
+        exports: 'key'
+    }
   },
 
-  paths: {
-    jquery: 'vendor/jquery.min'
+ paths: {
+    keymaster: 'vendor/keymaster.min',
+    jquery: 'vendor/jquery.min',
+    lodash: 'vendor/lodash/lodash.min'
   }
 });
  
 require(['app'], function(app) {
   // use app here
-  console.log(app);
 });
