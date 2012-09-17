@@ -1,11 +1,12 @@
 require.config({
   shim: {
-    'keymaster': {
+    keymaster: {
         exports: 'key'
     }
   },
 
  paths: {
+    sylvester: 'vendor/sylvester',
     keymaster: 'vendor/keymaster.min',
     jquery: 'vendor/jquery.min',
     lodash: 'components/lodash/lodash.min'

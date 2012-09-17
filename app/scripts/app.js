@@ -1,6 +1,6 @@
 var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
-define(['lodash', 'jquery'], function(_, $) {
+define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
   return $(function() {
     var Game, HEIGHT, Player, Resources, WIDTH, clearCanvas, ctx, game, requestAnimationFrame;
     requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
@@ -130,21 +130,27 @@ define(['lodash', 'jquery'], function(_, $) {
         this.reset = __bind(this.reset, this);
         this.sprite = options.sprite;
         this.reset();
-        this.ROTATION_STEP = 3;
-        this.CLOCKWISE = this.ROTATION_STEP;
-        this.COUNTER_CLOCKWISE = -this.ROTATION_STEP;
       }
 
+      Player.prototype.rotationFactor = 6;
+
+      Player.prototype.accelerationFactor = 1 / 4;
+
+      Player.prototype.maxVelocity = 4;
+
       Player.prototype.reset = function() {
-        this.x = WIDTH / 2;
-        this.y = HEIGHT / 2;
-        this.velocity = 0;
-        this.acceleration = 0;
-        this.rotation = 0;
-        return this.angle = 0;
+        this.zero = Vector.Zero(2);
+        this.position = $V([WIDTH / 2, HEIGHT / 2]);
+        this.velocity = Vector.Zero(2);
+        this.acceleration = Vector.Zero(2);
+        this.angle = $V([0, 1]);
+        this.VX = $V([1, 0]);
+        return this.VnegX = $V([-1, 0]);
       };
 
-      Player.prototype.stopInput = function(el) {
+      Player.prototype.stopInput = function() {
+        var el;
+        el = $(document.body);
         return el.off('keydown keyup');
       };
 
@@ -153,52 +159,87 @@ define(['lodash', 'jquery'], function(_, $) {
           _this = this;
         el = $(document.body);
         el.on('keydown', function(e) {
-          e.preventDefault();
           switch (e.keyCode) {
             case 37:
-              return _this.rotation = _this.COUNTER_CLOCKWISE;
+              _this.rotation = -_this.rotationFactor;
+              break;
             case 39:
-              return _this.rotation = _this.CLOCKWISE;
+              _this.rotation = _this.rotationFactor;
+              break;
             case 38:
-              return _this.acceleration = 1;
+              _this.accelerationScalar = _this.accelerationFactor;
+              break;
             case 40:
-              return _this.acceleration = -1;
+              _this.accelerationScalar = -_this.accelerationFactor;
+              break;
+            default:
+              return;
           }
+          return e.preventDefault();
         });
         return el.on('keyup', function(e) {
-          e.preventDefault();
           switch (e.keyCode) {
-            case 37:
-            case 39:
-              return _this.rotation = 0;
             case 38:
             case 40:
-              return _this.acceleration = 0;
+              _this.accelerationScalar = 0;
+              break;
+            case 37:
+            case 39:
+              _this.rotation = 0;
+              break;
+            default:
+              return;
           }
+          return e.preventDefault();
         });
       };
 
-      Player.prototype.updateAngle = function() {
-        return this.angle = (this.angle + 360 + this.rotation) % 360;
+      Player.prototype.reverseX = function() {
+        return this.velocity = $V([-this.velocity.e(1), this.velocity.e(2)]);
+      };
+
+      Player.prototype.reverseY = function() {
+        return this.velocity = $V([this.velocity.e(1), -this.velocity.e(2)]);
       };
 
       Player.prototype.tick = function() {
-        return this.updateAngle();
+        this.velocity = this.velocity.add(this.acceleration).toUnitVector().x(this.maxVelocity);
+        this.position = this.position.add(this.velocity);
+        if (this.rotation) {
+          this.angle = this.angle.rotate(this.rotation * (Math.PI / 180), this.zero);
+        }
+        if (this.accelerationScalar) {
+          this.acceleration = this.angle.x(this.accelerationScalar);
+        } else {
+          this.acceleration = this.zero;
+        }
+        if (this.position.e(1) < 0) {
+          this.position.setElements([0, this.position.e(2)]);
+          return this.reverseX();
+        } else if (this.position.e(1) > WIDTH - this.sprite.width) {
+          this.position.setElements([WIDTH - this.sprite.width, this.position.e(2)]);
+          return this.reverseX();
+        } else if (this.position.e(2) < 0) {
+          this.position.setElements([this.position.e(1), 0]);
+          return this.reverseY();
+        } else if (this.position.e(2) > HEIGHT - this.sprite.height) {
+          this.position.setElements([this.position.e(1), HEIGHT - this.sprite.height]);
+          return this.reverseY();
+        }
       };
 
       Player.prototype.draw = function() {
         ctx.save();
-        ctx.translate(WIDTH / 2, HEIGHT / 2);
-        ctx.rotate(this.angle * Math.PI / 180);
+        ctx.translate(this.position.e(1), this.position.e(2));
+        ctx.rotate(Math.atan2(this.angle.e(2), this.angle.e(1)) + Math.PI / 2);
         ctx.drawImage(this.sprite, -this.sprite.width / 2, -this.sprite.height / 2);
         return ctx.restore();
       };
 
       Player.prototype.drawStats = function(x, y) {
-        ctx.fillText("velocity: " + this.velocity, x, y);
-        ctx.fillText("acceleration: " + this.acceleration, x, y + 10);
-        ctx.fillText("rotation: " + this.rotation, x, y + 20);
-        return ctx.fillText("angle: " + this.angle, x, y + 30);
+        ctx.fillText("velocity: " + (this.velocity.e(1)) + ", " + (this.velocity.e(2)), x, y);
+        ctx.fillText("acceleration: " + (this.acceleration.e(1)) + ", " + (this.acceleration.e(2)), x, y + 10);
+        return ctx.fillText("angle: " + (this.angle.e(1)) + ", " + (this.angle.e(2)), x, y + 30);
       };
 
       return Player;
