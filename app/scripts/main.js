@@ -6,7 +6,7 @@ require.config({
   },
 
  paths: {
-    sylvester: 'vendor/sylvester',
+    'gl-matrix': 'vendor/gl-matrix-min',
     jquery: 'vendor/jquery.min',
     lodash: 'components/lodash/lodash.min'
   }

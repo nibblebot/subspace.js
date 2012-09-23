@@ -1,10 +1,15 @@
-define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) -> 
+define ['lodash', 'jquery', 'gl-matrix'], (_, $, vec3) -> 
   $ ->
-    requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
-    window.requestAnimationFrame = requestAnimationFrame
+    rotationMatrix = _.memoize (theta) ->
+      mat2.createFrom Math.cos(theta), -Math.sin(theta), Math.sin(theta), Math.cos(theta)
+
+    vec2.rotate = (vec, theta) ->
+      mat2.multiplyVec2 rotationMatrix(theta), vec
+
     ctx = document.getElementById('game').getContext('2d')
     WIDTH = $('#game').width()
     HEIGHT = $('#game').height()
+    FPS = 1000 / 16
 
     clearCanvas = ->
       ctx.fillStyle = '#000'
@@ -27,7 +32,7 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
 
 
     class Game
-      debug: false
+      debug: true
       constructor: ->
         @$el = $('#game')
         @resources = new Resources
@@ -44,27 +49,24 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
 
       start: =>
         @lastUpdate = +(new Date) - 1
-        @fps = 0
-        @fpsFilter = 50
         @player.listenInput()
         @tick()
+        
 
       stop: => 
         @player.stopInput()
         if @tickID
-          window.webkitClearAnimationFrame @tickID
-        if @fpsID
-          clearInterval @fpsID
+          clearInterval @tickID
 
       tick: =>
-        @tickID = requestAnimationFrame @tick
+        window.webkitRequestAnimationFrame @tick
         clearCanvas()
         @player.tick()
         @player.draw()
-        @drawDebug() if @debug
+        # @drawDebug() if @debug
 
       drawDebug: =>
-        @player.drawStats x, y + 10
+        @player.drawStats 4, 60
 
     class Player
       constructor: (options) ->
@@ -75,13 +77,13 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
       accelerationFactor: 1/2
       maxVelocity: 4
       reset: =>
-        @zero = Vector.Zero 2
-        @position = $V [WIDTH/2, HEIGHT/2]
-        @velocity = Vector.Zero 2 
-        @acceleration = Vector.Zero 2 
-        @angle = $V [0, 1]
-        @VX = $V [1, 0]
-        @VnegX = $V [-1, 0]
+        @zero = vec2.createFrom 0, 0
+        @position = vec2.createFrom WIDTH/2, HEIGHT/2
+        @velocity = vec2.create @zero
+        @acceleration = vec2.create @zero
+        @angle = vec2.createFrom 0, 1
+        @negY = vec2.createFrom 1, -1
+        @negX = vec2.createFrom -1, 1
 
       stopInput: =>
         el = $ document.body
@@ -106,47 +108,52 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
           e.preventDefault()
 
       reverseX: ->
-        @velocity = $V([-@velocity.e(1), @velocity.e(2)])
+        vec2.multiply @negX, @velocity
       reverseY: ->
-        @velocity = $V([@velocity.e(1), -@velocity.e(2)])
+        vec2.multiply @negY, @velocity
 
       tick: =>
-        @velocity = @velocity.add(@acceleration).toUnitVector().x(@maxVelocity)
-        @position = @position.add(@velocity)
+        console.log @angle
+        vec2.add @acceleration, @velocity
+        vec2.normalize @velocity
+        vec2.scale @velocity, @maxVelocity
+        vec2.add @velocity, @position
+
         if @rotation
-          @angle = @angle.rotate @rotation*(Math.PI / 180), @zero
+          vec2.rotate @angle, @rotation*(Math.PI / 180)
+
         if @accelerationScalar
-          @acceleration = @angle.x @accelerationScalar
+          vec2.scale @angle, @accelerationScalar, @acceleration
         else 
-          @acceleration = @zero
+          vec2.set @zero, @acceleration
 
-        if @position.e(1) < 0
-          @position.setElements [0, @position.e(2)]
+        if @position[0] < 0
+          @position[0] = 0
           @reverseX()
 
-        else if @position.e(1) > WIDTH - @sprite.width
-          @position.setElements [WIDTH - @sprite.width, @position.e(2)]
+        else if @position[0] > WIDTH - @sprite.width
+          @position[0] = WIDTH - @sprite.width
           @reverseX()
 
-        else if @position.e(2) < 0
-          @position.setElements [@position.e(1), 0]
+        else if @position[1] < 0
+          @position[1] = 0
           @reverseY()
 
-        else if @position.e(2) > HEIGHT - @sprite.height 
-          @position.setElements [@position.e(1), HEIGHT - @sprite.height]
+        else if @position[1] > HEIGHT - @sprite.height 
+          @position[1] = HEIGHT - @sprite.height
           @reverseY()
 
       draw: =>
         ctx.save()
-        ctx.translate @position.e(1), @position.e(2)
-        ctx.rotate Math.atan2(@angle.e(2), @angle.e(1)) + Math.PI/2
+        ctx.translate @position[0], @position[1]
+        ctx.rotate Math.atan2(@angle[1], @angle[0]) + Math.PI/2
         ctx.drawImage @sprite, -@sprite.width/2, -@sprite.height/2 
         ctx.restore()
 
       drawStats: (x, y) =>
-        ctx.fillText "velocity: #{@velocity.e(1)}, #{@velocity.e(2)}", x, y 
-        ctx.fillText "acceleration: #{@acceleration.e(1)}, #{@acceleration.e(2)}", x, y + 10
-        ctx.fillText "angle: #{@angle.e(1)}, #{@angle.e(2)}", x, y + 30
+        ctx.fillText "velocity: #{@velocity[0]}, #{@velocity[1]}", x, y 
+        ctx.fillText "acceleration: #{@acceleration[0]}, #{@acceleration[1]}", x, y + 10
+        ctx.fillText "angle: #{@angle[0]}, #{@angle[1]}", x, y + 30
 
 
-    game = new Game()
+    window.game = new Game()

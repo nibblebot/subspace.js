@@ -1,13 +1,18 @@
 var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
-define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
+define(['lodash', 'jquery', 'gl-matrix'], function(_, $, vec3) {
   return $(function() {
-    var Game, HEIGHT, Player, Resources, WIDTH, clearCanvas, ctx, game, requestAnimationFrame;
-    requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
-    window.requestAnimationFrame = requestAnimationFrame;
+    var FPS, Game, HEIGHT, Player, Resources, WIDTH, clearCanvas, ctx, rotationMatrix;
+    rotationMatrix = _.memoize(function(theta) {
+      return mat2.createFrom(Math.cos(theta), -Math.sin(theta), Math.sin(theta), Math.cos(theta));
+    });
+    vec2.rotate = function(vec, theta) {
+      return mat2.multiplyVec2(rotationMatrix(theta), vec);
+    };
     ctx = document.getElementById('game').getContext('2d');
     WIDTH = $('#game').width();
     HEIGHT = $('#game').height();
+    FPS = 1000 / 16;
     clearCanvas = function() {
       ctx.fillStyle = '#000';
       return ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -39,7 +44,7 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
     })();
     Game = (function() {
 
-      Game.prototype.debug = false;
+      Game.prototype.debug = true;
 
       function Game() {
         this.drawDebug = __bind(this.drawDebug, this);
@@ -65,8 +70,6 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
 
       Game.prototype.start = function() {
         this.lastUpdate = +(new Date) - 1;
-        this.fps = 0;
-        this.fpsFilter = 50;
         this.player.listenInput();
         return this.tick();
       };
@@ -74,25 +77,17 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
       Game.prototype.stop = function() {
         this.player.stopInput();
         if (this.tickID) {
-          window.webkitClearAnimationFrame(this.tickID);
-        }
-        if (this.fpsID) {
-          return clearInterval(this.fpsID);
+          return clearInterval(this.tickID);
         }
       };
 
       Game.prototype.tick = function() {
-        this.tickID = requestAnimationFrame(this.tick);
-        clearCanvas();
-        this.player.tick();
-        this.player.draw();
-        if (this.debug) {
-          return this.drawDebug();
-        }
+        window.webkitRequestAnimationFrame(this.tick);
+        return clearCanvas();
       };
 
       Game.prototype.drawDebug = function() {
-        return this.player.drawStats(x, y + 10);
+        return this.player.drawStats(4, 60);
       };
 
       return Game;
@@ -123,13 +118,13 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
       Player.prototype.maxVelocity = 4;
 
       Player.prototype.reset = function() {
-        this.zero = Vector.Zero(2);
-        this.position = $V([WIDTH / 2, HEIGHT / 2]);
-        this.velocity = Vector.Zero(2);
-        this.acceleration = Vector.Zero(2);
-        this.angle = $V([0, 1]);
-        this.VX = $V([1, 0]);
-        return this.VnegX = $V([-1, 0]);
+        this.zero = vec2.createFrom(0, 0);
+        this.position = vec2.createFrom(WIDTH / 2, HEIGHT / 2);
+        this.velocity = vec2.create(this.zero);
+        this.acceleration = vec2.create(this.zero);
+        this.angle = vec2.createFrom(0, 1);
+        this.negY = vec2.createFrom(1, -1);
+        return this.negX = vec2.createFrom(-1, 1);
       };
 
       Player.prototype.stopInput = function() {
@@ -179,56 +174,59 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
       };
 
       Player.prototype.reverseX = function() {
-        return this.velocity = $V([-this.velocity.e(1), this.velocity.e(2)]);
+        return vec2.multiply(this.negX, this.velocity);
       };
 
       Player.prototype.reverseY = function() {
-        return this.velocity = $V([this.velocity.e(1), -this.velocity.e(2)]);
+        return vec2.multiply(this.negY, this.velocity);
       };
 
       Player.prototype.tick = function() {
-        this.velocity = this.velocity.add(this.acceleration).toUnitVector().x(this.maxVelocity);
-        this.position = this.position.add(this.velocity);
+        console.log(this.angle);
+        vec2.add(this.acceleration, this.velocity);
+        vec2.normalize(this.velocity);
+        vec2.scale(this.velocity, this.maxVelocity);
+        vec2.add(this.velocity, this.position);
         if (this.rotation) {
-          this.angle = this.angle.rotate(this.rotation * (Math.PI / 180), this.zero);
+          vec2.rotate(this.angle, this.rotation * (Math.PI / 180));
         }
         if (this.accelerationScalar) {
-          this.acceleration = this.angle.x(this.accelerationScalar);
+          vec2.scale(this.angle, this.accelerationScalar, this.acceleration);
         } else {
-          this.acceleration = this.zero;
+          vec2.set(this.zero, this.acceleration);
         }
-        if (this.position.e(1) < 0) {
-          this.position.setElements([0, this.position.e(2)]);
+        if (this.position[0] < 0) {
+          this.position[0] = 0;
           return this.reverseX();
-        } else if (this.position.e(1) > WIDTH - this.sprite.width) {
-          this.position.setElements([WIDTH - this.sprite.width, this.position.e(2)]);
+        } else if (this.position[0] > WIDTH - this.sprite.width) {
+          this.position[0] = WIDTH - this.sprite.width;
           return this.reverseX();
-        } else if (this.position.e(2) < 0) {
-          this.position.setElements([this.position.e(1), 0]);
+        } else if (this.position[1] < 0) {
+          this.position[1] = 0;
           return this.reverseY();
-        } else if (this.position.e(2) > HEIGHT - this.sprite.height) {
-          this.position.setElements([this.position.e(1), HEIGHT - this.sprite.height]);
+        } else if (this.position[1] > HEIGHT - this.sprite.height) {
+          this.position[1] = HEIGHT - this.sprite.height;
           return this.reverseY();
         }
       };
 
       Player.prototype.draw = function() {
         ctx.save();
-        ctx.translate(this.position.e(1), this.position.e(2));
-        ctx.rotate(Math.atan2(this.angle.e(2), this.angle.e(1)) + Math.PI / 2);
+        ctx.translate(this.position[0], this.position[1]);
+        ctx.rotate(Math.atan2(this.angle[1], this.angle[0]) + Math.PI / 2);
         ctx.drawImage(this.sprite, -this.sprite.width / 2, -this.sprite.height / 2);
         return ctx.restore();
       };
 
       Player.prototype.drawStats = function(x, y) {
-        ctx.fillText("velocity: " + (this.velocity.e(1)) + ", " + (this.velocity.e(2)), x, y);
-        ctx.fillText("acceleration: " + (this.acceleration.e(1)) + ", " + (this.acceleration.e(2)), x, y + 10);
-        return ctx.fillText("angle: " + (this.angle.e(1)) + ", " + (this.angle.e(2)), x, y + 30);
+        ctx.fillText("velocity: " + this.velocity[0] + ", " + this.velocity[1], x, y);
+        ctx.fillText("acceleration: " + this.acceleration[0] + ", " + this.acceleration[1], x, y + 10);
+        return ctx.fillText("angle: " + this.angle[0] + ", " + this.angle[1], x, y + 30);
       };
 
       return Player;
 
     })();
-    return game = new Game();
+    return window.game = new Game();
   });
 });
