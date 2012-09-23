@@ -39,11 +39,9 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
     })();
     Game = (function() {
 
-      Game.prototype.debug = true;
+      Game.prototype.debug = false;
 
       function Game() {
-        this.drawFPS = __bind(this.drawFPS, this);
-
         this.drawDebug = __bind(this.drawDebug, this);
 
         this.tick = __bind(this.tick, this);
@@ -70,8 +68,7 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
         this.fps = 0;
         this.fpsFilter = 50;
         this.player.listenInput();
-        this.tick();
-        return this.fpsID = setInterval(this.drawFPS, 1000);
+        return this.tick();
       };
 
       Game.prototype.stop = function() {
@@ -85,30 +82,17 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
       };
 
       Game.prototype.tick = function() {
+        this.tickID = requestAnimationFrame(this.tick);
         clearCanvas();
         this.player.tick();
         this.player.draw();
         if (this.debug) {
-          this.drawDebug();
+          return this.drawDebug();
         }
-        return this.tickID = requestAnimationFrame(this.tick);
       };
 
       Game.prototype.drawDebug = function() {
-        var x, y;
-        x = 4;
-        y = 10;
-        this.drawFPS(x, y);
         return this.player.drawStats(x, y + 10);
-      };
-
-      Game.prototype.drawFPS = function() {
-        var frameTime, now;
-        frameTime = 1000 / (+(now = new Date) - this.lastUpdate);
-        this.fps += (frameTime - this.fps) / this.fpsFilter;
-        this.lastUpdate = now;
-        ctx.fillStyle = '#fff';
-        return ctx.fillText("" + (Math.floor(this.fps)) + " fps", 4, 10);
       };
 
       return Game;
@@ -134,7 +118,7 @@ define(['lodash', 'jquery', 'sylvester'], function(_, $, Sylvester) {
 
       Player.prototype.rotationFactor = 6;
 
-      Player.prototype.accelerationFactor = 1 / 4;
+      Player.prototype.accelerationFactor = 1 / 2;
 
       Player.prototype.maxVelocity = 4;
 

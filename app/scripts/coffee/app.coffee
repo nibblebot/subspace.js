@@ -27,7 +27,7 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
 
 
     class Game
-      debug: true
+      debug: false
       constructor: ->
         @$el = $('#game')
         @resources = new Resources
@@ -47,9 +47,7 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
         @fps = 0
         @fpsFilter = 50
         @player.listenInput()
-
         @tick()
-        @fpsID = setInterval @drawFPS, 1000
 
       stop: => 
         @player.stopInput()
@@ -59,24 +57,14 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
           clearInterval @fpsID
 
       tick: =>
+        @tickID = requestAnimationFrame @tick
         clearCanvas()
         @player.tick()
         @player.draw()
         @drawDebug() if @debug
-        @tickID = requestAnimationFrame @tick
 
       drawDebug: =>
-        x = 4
-        y = 10
-        @drawFPS x, y
         @player.drawStats x, y + 10
-
-      drawFPS: =>
-        frameTime = 1000 / (+(now=new Date) - @lastUpdate)
-        @fps += (frameTime - @fps) / @fpsFilter
-        @lastUpdate = now
-        ctx.fillStyle = '#fff'
-        ctx.fillText "#{Math.floor @fps} fps", 4, 10
 
     class Player
       constructor: (options) ->
@@ -84,7 +72,7 @@ define ['lodash', 'jquery', 'sylvester'], (_, $, Sylvester) ->
         @reset()
 
       rotationFactor: 6
-      accelerationFactor: 1/4
+      accelerationFactor: 1/2
       maxVelocity: 4
       reset: =>
         @zero = Vector.Zero 2

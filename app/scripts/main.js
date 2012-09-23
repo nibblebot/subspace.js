@@ -7,7 +7,6 @@ require.config({
 
  paths: {
     sylvester: 'vendor/sylvester',
-    keymaster: 'vendor/keymaster.min',
     jquery: 'vendor/jquery.min',
     lodash: 'components/lodash/lodash.min'
   }
